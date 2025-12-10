@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Zone – Acte I Vocab Learn Mode</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+
+    .app {
+      background: #ffffff;
+      margin: 24px;
+      padding: 24px 20px 28px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      max-width: 800px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 1.6rem;
+      text-align: center;
+    }
+
+    .progress-container {
+      margin: 12px 0 24px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: #e1e4e8;
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    #progress-learning {
+      background: #ffd54f;
+      z-index: 1;
+    }
+
+    #progress-mastered {
+      background: #4caf50;
+      z-index: 2;
+    }
+
+    .progress-text {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      text-align: right;
+      color: #555;
+    }
+
+    #card {
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      padding: 20px 18px 18px;
+      background: #fafafa;
+    }
+
+    #mode-label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #777;
+      margin-bottom: 8px;
+    }
+
+    #question {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .choice-btn {
+      border-radius: 8px;
+      border: 1px solid #d0d7de;
+      padding: 10px 8px;
+      background: #ffffff;
+      cursor: pointer;
+      font-size: 0.95rem;
+      text-align: left;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
+    }
+
+    .choice-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .choice-btn.correct {
+      background: #e6f4ea;
+      border-color: #4caf50;
+    }
+
+    .choice-btn.wrong {
+      background: #ffebee;
+      border-color: #e53935;
+    }
+
+    .choice-btn.clicked {
+      transform: scale(0.98);
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+
+    #write-input-container {
+      display: none;
+      margin-bottom: 12px;
+    }
+
+    #answer-input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    #check-btn {
+      margin-top: 8px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      background: #1976d2;
+      color: white;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: transform 0.12s ease, opacity 0.2s ease;
+    }
+
+    #check-btn:disabled {
+      background: #90a4ae;
+      cursor: default;
+    }
+
+    #feedback {
+      min-height: 20px;
+      margin-top: 4px;
+      font-size: 0.95rem;
+    }
+
+    #feedback.correct {
+      color: #2e7d32;
+    }
+
+    #feedback.wrong {
+      color: #c62828;
+    }
+
+    .controls {
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .controls button {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    #next-btn {
+      background: #1976d2;
+      color: white;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    #next-btn:disabled {
+      background: #90a4ae;
+      cursor: default;
+    }
+
+    #reset-btn {
+      background: #eeeeee;
+      color: #333;
+      min-width: 120px;
+    }
+
+    .override-btn {
+      display: none;
+      margin-top: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #4caf50;
+      background: #e6f4ea;
+      color: #2e7d32;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .override-btn:hover {
+      background: #d3ecd7;
+    }
+
+    .small-note {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #777;
+      text-align: right;
+    }
+
+    #finished-message {
+      margin-top: 10px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-align: center;
+      color: #2e7d32;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-animate {
+      animation: cardEnter 0.35s ease;
+    }
+
+    @keyframes cardEnter {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .break-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .break-content {
+      background: #ffffff;
+      padding: 24px 28px;
+      border-radius: 16px;
+      text-align: center;
+      width: min(90%, 360px);
+      box-shadow: 0 24px 50px rgba(15,23,42,0.2);
+    }
+
+    .break-content h2 {
+      margin: 0 0 8px;
+    }
+
+    .break-content button {
+      margin-top: 16px;
+      border: none;
+      background: #1976d2;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .break-summary {
+      margin-top: 18px;
+      text-align: left;
+    }
+
+    .break-summary-title {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      color: #0f172a;
+    }
+
+    .break-summary-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .break-summary-list li {
+      padding: 6px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .break-summary-list li:last-child {
+      border-bottom: none;
+    }
+
+    .break-summary-term {
+      font-weight: 600;
+      display: block;
+    }
+
+    .break-summary-definition {
+      font-size: 0.9rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Zone &mdash; Acte I Vocabulaire &mdash; Learn Mode</h1>
+
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-learning"></div>
+        <div class="progress-fill" id="progress-mastered"></div>
+      </div>
+      <div class="progress-text" id="progress-text">Mastered 0/0 · Learning 0</div>
+    </div>
+
+    <div id="card">
+      <div id="mode-label"></div>
+      <div id="question"></div>
+
+      <div id="choices" class="choices"></div>
+
+      <div id="write-input-container">
+        <input id="answer-input" type="text" autocomplete="off" placeholder="Tape le mot ou l'expression en français…">
+        <button id="check-btn">Check</button>
+      </div>
+
+      <div id="feedback"></div>
+      <button id="override-btn" class="override-btn" type="button">I'm actually correct</button>
+      <div id="finished-message"></div>
+    </div>
+
+    <div class="controls">
+      <button id="reset-btn" type="button">Reset Progress</button>
+      <button id="next-btn" type="button" disabled>Next</button>
+    </div>
+
+  <div class="small-note">
+      Progress is saved in this browser (localStorage).
+    </div>
+  </div>
+  <div id="break-overlay" class="break-overlay hidden">
+    <div class="break-content">
+      <h2>Quick break!</h2>
+      <p>Nice work so far. Take a moment, then continue.</p>
+      <div class="break-summary">
+        <p class="break-summary-title">Just covered:</p>
+        <ul id="break-summary-list" class="break-summary-list"></ul>
+      </div>
+      <button id="continue-btn" type="button">Continue</button>
+    </div>
+  </div>
+  <iframe id="vocab-inline-frame" src="vocab.json" class="hidden" aria-hidden="true"></iframe>
+
+  <script>
+    // ========== VOCAB DATA ==========
+    // french: what you must select/type
+    // english: what appears as the prompt
+    let vocab = [];
+
+    const STORAGE_KEY = "zone_acte1_vocab_progress_v1";
+    const BREAK_INTERVAL = 6;
+    const BREAK_SUMMARY_COUNT = Math.max(1, BREAK_INTERVAL);
+    const WRITING_DELAY_CARDS = Math.max(2, BREAK_INTERVAL * 2);
+
+    // progress[id] = { mode: "choice" | "write", mastered: bool }
+    let progress = {};
+    let currentCard = null;
+    let currentMode = null; // "choice" | "write"
+    let reviewMode = false;
+    let answeredThisRound = false;
+    let cardsCompleted = 0;
+    let breakActive = false;
+    let modePreference = "both";
+    let overrideAvailable = false;
+    let recentCards = [];
+
+    const progressLearningEl = document.getElementById("progress-learning");
+    const progressMasteredEl = document.getElementById("progress-mastered");
+    const progressTextEl   = document.getElementById("progress-text");
+    const questionEl       = document.getElementById("question");
+    const modeLabelEl      = document.getElementById("mode-label");
+    const choicesEl        = document.getElementById("choices");
+    const writeContainerEl = document.getElementById("write-input-container");
+    const answerInputEl    = document.getElementById("answer-input");
+    const checkBtnEl       = document.getElementById("check-btn");
+    const overrideBtnEl    = document.getElementById("override-btn");
+    const feedbackEl       = document.getElementById("feedback");
+    const nextBtnEl        = document.getElementById("next-btn");
+    const resetBtnEl       = document.getElementById("reset-btn");
+    const finishedMsgEl    = document.getElementById("finished-message");
+    const cardEl           = document.getElementById("card");
+    const breakOverlayEl   = document.getElementById("break-overlay");
+    const continueBtnEl    = document.getElementById("continue-btn");
+    const breakSummaryListEl = document.getElementById("break-summary-list");
+
+    function isChoiceEnabled() {
+      return modePreference === "choice" || modePreference === "both";
+    }
+
+    function isWritingEnabled() {
+      return modePreference === "write" || modePreference === "both";
+    }
+
+    function ensureStateStructure(cardId) {
+      if (!progress[cardId]) {
+        progress[cardId] = {
+          mode: isChoiceEnabled() ? "choice" : "write",
+          mastered: false,
+          writeCountdown: 0,
+          pendingWrite: false
+        };
+      } else {
+        const state = progress[cardId];
+        if (typeof state.mastered !== "boolean") state.mastered = false;
+        if (state.mode !== "choice" && state.mode !== "write") state.mode = "choice";
+        if (typeof state.writeCountdown !== "number") state.writeCountdown = 0;
+        if (typeof state.pendingWrite !== "boolean") state.pendingWrite = false;
+      }
+      return progress[cardId];
+    }
+
+    function syncProgressWithPreference() {
+      vocab.forEach(card => {
+        const state = ensureStateStructure(card.id);
+        if (modePreference === "write") {
+          state.mode = "write";
+          state.pendingWrite = false;
+          state.writeCountdown = 0;
+        } else if (modePreference === "choice") {
+          state.mode = "choice";
+          state.pendingWrite = false;
+          state.writeCountdown = 0;
+        } else {
+          if (state.pendingWrite && state.writeCountdown <= 0) {
+            state.pendingWrite = false;
+            state.mode = "write";
+          }
+        }
+      });
+    }
+
+    function toggleOverride(show) {
+      overrideAvailable = show;
+      if (show) {
+        overrideBtnEl.style.display = "inline-flex";
+      } else {
+        overrideBtnEl.style.display = "none";
+      }
+    }
+
+    function recordCardCompletion(card) {
+      if (!card) return;
+      recentCards.push({
+        id: card.id,
+        french: card.french,
+        english: card.english
+      });
+      if (recentCards.length > BREAK_SUMMARY_COUNT) {
+        recentCards.shift();
+      }
+      advanceWriteCountdowns();
+    }
+
+    function advanceWriteCountdowns() {
+      if (modePreference !== "both") return;
+      vocab.forEach(entry => {
+        const state = progress[entry.id];
+        if (!state || state.mastered) return;
+        if (state.pendingWrite && state.writeCountdown > 0) {
+          state.writeCountdown = Math.max(0, state.writeCountdown - 1);
+          if (state.writeCountdown === 0 && isWritingEnabled()) {
+            state.pendingWrite = false;
+            state.mode = "write";
+          }
+        }
+      });
+    }
+
+    function handleChoiceProgress(state) {
+      if (!state) return;
+      if (!isWritingEnabled() || modePreference === "choice") {
+        state.mastered = true;
+        state.pendingWrite = false;
+        state.writeCountdown = 0;
+      } else if (modePreference === "both") {
+        state.pendingWrite = true;
+        state.writeCountdown = WRITING_DELAY_CARDS;
+        state.mode = "choice";
+      } else {
+        state.mode = "write";
+      }
+    }
+
+    function revertCardToChoice(state) {
+      if (!state) return;
+      state.pendingWrite = false;
+      state.writeCountdown = 0;
+      state.mastered = false;
+      state.mode = isChoiceEnabled() ? "choice" : "write";
+    }
+
+    function renderBreakSummary() {
+      if (!breakSummaryListEl) return;
+      breakSummaryListEl.innerHTML = "";
+      const items = recentCards.slice(-BREAK_SUMMARY_COUNT).reverse();
+      if (!items.length) {
+        const li = document.createElement("li");
+        li.textContent = "Keep going to see the recent terms here.";
+        breakSummaryListEl.appendChild(li);
+        return;
+      }
+      items.forEach(card => {
+        const li = document.createElement("li");
+        const termSpan = document.createElement("span");
+        termSpan.className = "break-summary-term";
+        termSpan.textContent = card.french;
+        const defSpan = document.createElement("span");
+        defSpan.className = "break-summary-definition";
+        defSpan.textContent = card.english;
+        li.appendChild(termSpan);
+        li.appendChild(defSpan);
+        breakSummaryListEl.appendChild(li);
+      });
+    }
+
+    function animateCard() {
+      cardEl.classList.remove("card-animate");
+      void cardEl.offsetWidth;
+      cardEl.classList.add("card-animate");
+    }
+
+    function animateButton(el) {
+      if (!el) return;
+      el.classList.add("clicked");
+      setTimeout(() => el.classList.remove("clicked"), 180);
+    }
+
+    function showBreakOverlay() {
+      breakActive = true;
+      renderBreakSummary();
+      breakOverlayEl.classList.remove("hidden");
+    }
+
+    function hideBreakOverlay() {
+      breakActive = false;
+      breakOverlayEl.classList.add("hidden");
+    }
+
+    function applyVocabData(data) {
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid vocab format");
+      }
+      vocab = data.map(card => ({
+        id: Number(card.id),
+        french: card.french,
+        english: card.english
+      }));
+    }
+
+    function tryLoadVocabFromIframe() {
+      const iframe = document.getElementById("vocab-inline-frame");
+      if (!iframe || !iframe.contentDocument) return false;
+      const text = iframe.contentDocument.body ? iframe.contentDocument.body.textContent : "";
+      if (!text || !text.trim()) return false;
+      try {
+        const data = JSON.parse(text);
+        applyVocabData(data);
+        return true;
+      } catch (err) {
+        console.warn("Failed to parse vocab iframe data:", err);
+        return false;
+      }
+    }
+
+    function loadVocabFromIframeWhenReady() {
+      return new Promise(resolve => {
+        if (tryLoadVocabFromIframe()) {
+          resolve(true);
+          return;
+        }
+        const iframe = document.getElementById("vocab-inline-frame");
+        if (!iframe) {
+          resolve(false);
+          return;
+        }
+        const timeout = setTimeout(() => {
+          iframe.removeEventListener("load", onLoad);
+          resolve(tryLoadVocabFromIframe());
+        }, 1500);
+        function onLoad() {
+          clearTimeout(timeout);
+          iframe.removeEventListener("load", onLoad);
+          resolve(tryLoadVocabFromIframe());
+        }
+        iframe.addEventListener("load", onLoad);
+      });
+    }
+
+    async function loadVocabData() {
+      try {
+        modeLabelEl.textContent = "";
+        questionEl.textContent = "Loading vocabulary...";
+        const response = await fetch("vocab.json", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        applyVocabData(data);
+        questionEl.textContent = "";
+        return true;
+      } catch (error) {
+        console.error("Failed to load vocab file:", error);
+        if (window.location.protocol === "file:") {
+          const iframeLoaded = await loadVocabFromIframeWhenReady();
+          if (iframeLoaded) {
+            questionEl.textContent = "";
+            return true;
+          }
+        }
+        modeLabelEl.textContent = "Error";
+        questionEl.textContent = "Unable to load vocabulary data.";
+        finishedMsgEl.textContent = "";
+        return false;
+      }
+    }
+
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data && typeof data === "object" && data.progress) {
+            progress = data.progress;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load progress:", e);
+      }
+
+      // Ensure every card has an entry
+      syncProgressWithPreference();
+      cardsCompleted = 0;
+      recentCards = [];
+    }
+
+    function saveProgress() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ progress }));
+      } catch (e) {
+        console.warn("Could not save progress:", e);
+      }
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function normalized(str) {
+      return str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/['’]/g, "'")
+        .trim();
+    }
+
+    function updateProgressBar() {
+      const total = vocab.length;
+      let masteredCount = 0;
+      let learningCount = 0;
+
+      vocab.forEach(card => {
+        const state = progress[card.id];
+        if (!state) return;
+        if (state.mastered) {
+          masteredCount++;
+        } else if (state.mode === "write" || state.pendingWrite) {
+          learningCount++;
+        }
+      });
+
+      const masteredPercent = total > 0 ? (masteredCount / total) * 100 : 0;
+      const learningPercent = total > 0 ? ((masteredCount + learningCount) / total) * 100 : 0;
+      progressMasteredEl.style.width = masteredPercent.toFixed(1) + "%";
+      progressLearningEl.style.width = Math.max(learningPercent, masteredPercent).toFixed(1) + "%";
+      progressTextEl.textContent = `Mastered ${masteredCount}/${total} · Learning ${learningCount}`;
+    }
+
+    function isCardEligible(card) {
+      const state = progress[card.id];
+      if (!state || state.mastered) return false;
+      if (state.pendingWrite && state.writeCountdown > 0) return false;
+      if (state.mode === "write" && !isWritingEnabled()) return false;
+      if (state.mode === "choice" && !isChoiceEnabled()) return false;
+      return true;
+    }
+
+    function getNextCard() {
+      const remaining = vocab.filter(card => isCardEligible(card));
+      if (remaining.length === 0) return null;
+      const idx = Math.floor(Math.random() * remaining.length);
+      return remaining[idx];
+    }
+
+    function determineCardMode(card) {
+      const state = progress[card.id];
+      if (state && state.mode === "write" && isWritingEnabled()) {
+        return "write";
+      }
+      if (!isChoiceEnabled() && isWritingEnabled()) {
+        return "write";
+      }
+      return "choice";
+    }
+
+    function clearUIForNewCard() {
+      feedbackEl.textContent = "";
+      feedbackEl.className = "";
+      finishedMsgEl.textContent = "";
+      answeredThisRound = false;
+      reviewMode = false;
+      nextBtnEl.disabled = true;
+      checkBtnEl.disabled = false;
+      toggleOverride(false);
+      animateCard();
+    }
+
+    function renderChoiceCard(card) {
+      currentMode = "choice";
+      modeLabelEl.textContent = "Mode: Multiple Choice";
+      questionEl.textContent = card.english;
+
+      choicesEl.innerHTML = "";
+      choicesEl.style.display = "grid";
+      writeContainerEl.style.display = "none";
+
+      let options = [card];
+      const others = shuffle(vocab.filter(c => c.id !== card.id)).slice(0, 3);
+      options = options.concat(others);
+      shuffle(options);
+
+      options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice-btn";
+        btn.textContent = opt.french;
+        btn.addEventListener("click", () => {
+          if (answeredThisRound && !reviewMode) return;
+          animateButton(btn);
+          handleChoiceSelection(card, opt, options);
+        });
+        choicesEl.appendChild(btn);
+      });
+    }
+
+    function renderWriteCard(card) {
+      currentMode = "write";
+      modeLabelEl.textContent = "Mode: Writing";
+      questionEl.textContent = card.english;
+
+      choicesEl.innerHTML = "";
+      choicesEl.style.display = "none";
+      writeContainerEl.style.display = "block";
+      answerInputEl.value = "";
+      answerInputEl.focus();
+    }
+
+    function renderReviewCard(card, optionsForReview, allowOverride = false) {
+      reviewMode = true;
+      answeredThisRound = true;
+      nextBtnEl.disabled = false;
+      checkBtnEl.disabled = true;
+
+      modeLabelEl.textContent = "Review (you made a mistake)";
+      questionEl.textContent = card.english;
+
+      choicesEl.innerHTML = "";
+      choicesEl.style.display = "grid";
+      writeContainerEl.style.display = "none";
+
+      const options = optionsForReview && optionsForReview.length
+        ? optionsForReview
+        : (() => {
+            let arr = [card];
+            const others = shuffle(vocab.filter(c => c.id !== card.id)).slice(0, 3);
+            arr = arr.concat(others);
+            return shuffle(arr);
+          })();
+
+      options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice-btn";
+        btn.textContent = opt.french;
+        btn.disabled = true;
+        if (opt.id === card.id) {
+          btn.classList.add("correct");
+        }
+        choicesEl.appendChild(btn);
+      });
+
+      feedbackEl.className = "wrong";
+      feedbackEl.textContent = "Correct answer: " + card.french;
+      toggleOverride(allowOverride);
+    }
+
+    function handleChoiceSelection(card, selectedOpt, options) {
+      answeredThisRound = true;
+      toggleOverride(false);
+
+      const buttons = Array.from(choicesEl.querySelectorAll(".choice-btn"));
+      buttons.forEach(btn => {
+        if (btn.textContent.trim() === card.french.trim()) {
+          btn.classList.add("correct");
+        }
+      });
+
+      if (selectedOpt.id === card.id) {
+        feedbackEl.className = "correct";
+        feedbackEl.textContent = "Correct!";
+        nextBtnEl.disabled = false;
+
+        const state = progress[card.id];
+        if (!state.mastered) {
+          handleChoiceProgress(state);
+        }
+      } else {
+        // Wrong -> show review card with the correct answer visible
+        renderReviewCard(card, options, false);
+      }
+
+      saveProgress();
+      updateProgressBar();
+    }
+
+    function handleCheckWriting() {
+      if (!currentCard) return;
+      const userAnswer = normalized(answerInputEl.value);
+      const correct = normalized(currentCard.french);
+
+      answeredThisRound = true;
+
+      if (userAnswer && userAnswer === correct) {
+        feedbackEl.className = "correct";
+        feedbackEl.textContent = "Correct!";
+        nextBtnEl.disabled = false;
+        toggleOverride(false);
+
+        const state = progress[currentCard.id];
+        state.mastered = true;
+        state.pendingWrite = false;
+        state.writeCountdown = 0;
+        saveProgress();
+        updateProgressBar();
+      } else {
+        feedbackEl.className = "wrong";
+        feedbackEl.textContent = "Incorrect.";
+        // Show review card with MC + correct answer
+        renderReviewCard(currentCard, null, true);
+        const state = progress[currentCard.id];
+        revertCardToChoice(state);
+        saveProgress();
+        updateProgressBar();
+      }
+    }
+
+    function showCard(card) {
+      currentCard = card;
+      clearUIForNewCard();
+
+      const state = progress[card.id];
+      if (state.mastered) {
+        // if somehow we get here, just pick again
+        const next = getNextCard();
+        if (!next) {
+          showFinished();
+          return;
+        }
+        showCard(next);
+        return;
+      }
+
+      const nextMode = determineCardMode(card);
+      if (nextMode === "choice") {
+        renderChoiceCard(card);
+      } else {
+        renderWriteCard(card);
+      }
+    }
+
+    function showFinished() {
+      questionEl.textContent = "";
+      choicesEl.innerHTML = "";
+      choicesEl.style.display = "none";
+      writeContainerEl.style.display = "none";
+      feedbackEl.textContent = "";
+      finishedMsgEl.textContent = "🎉 All words mastered! (You can reset progress to start again.)";
+      nextBtnEl.disabled = true;
+      toggleOverride(false);
+      hideBreakOverlay();
+    }
+
+    function nextCard(force = false) {
+      if (breakActive && !force) return;
+
+      if (!force && currentCard && answeredThisRound) {
+        recordCardCompletion(currentCard);
+        cardsCompleted++;
+        if (BREAK_INTERVAL > 0 && cardsCompleted % BREAK_INTERVAL === 0) {
+          const hasUnmastered = vocab.some(card => !progress[card.id].mastered);
+          if (hasUnmastered) {
+            showBreakOverlay();
+            return;
+          }
+        }
+      }
+
+      const next = getNextCard();
+      if (!next) {
+        showFinished();
+        return;
+      }
+      showCard(next);
+    }
+
+    // Event listeners
+    checkBtnEl.addEventListener("click", () => {
+      if (!answeredThisRound || reviewMode === false) {
+        handleCheckWriting();
+      }
+    });
+
+    answerInputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !checkBtnEl.disabled) {
+        handleCheckWriting();
+      }
+    });
+
+    nextBtnEl.addEventListener("click", () => {
+      nextCard();
+    });
+
+    resetBtnEl.addEventListener("click", () => {
+      if (!confirm("Reset all progress?")) return;
+      progress = {};
+      vocab.forEach(card => {
+        progress[card.id] = {
+          mode: isChoiceEnabled() ? "choice" : "write",
+          mastered: false,
+          writeCountdown: 0,
+          pendingWrite: false
+        };
+      });
+      cardsCompleted = 0;
+      recentCards = [];
+      currentCard = null;
+      answeredThisRound = false;
+      hideBreakOverlay();
+      saveProgress();
+      updateProgressBar();
+      nextCard();
+    });
+
+    overrideBtnEl.addEventListener("click", () => {
+      if (!overrideAvailable || !currentCard) return;
+      feedbackEl.className = "correct";
+      feedbackEl.textContent = "Marked correct.";
+      nextBtnEl.disabled = false;
+      const state = progress[currentCard.id];
+      state.mastered = true;
+      state.pendingWrite = false;
+      state.writeCountdown = 0;
+      saveProgress();
+      updateProgressBar();
+      toggleOverride(false);
+      reviewMode = false;
+    });
+
+    continueBtnEl.addEventListener("click", () => {
+      hideBreakOverlay();
+      nextCard(true);
+    });
+
+    breakOverlayEl.addEventListener("click", (event) => {
+      if (event.target === breakOverlayEl) {
+        hideBreakOverlay();
+        nextCard(true);
+      }
+    });
+
+    async function initApp() {
+      const loaded = await loadVocabData();
+      if (!loaded || !vocab.length) return;
+      loadProgress();
+      updateProgressBar();
+      nextCard();
+    }
+
+    initApp();
+  </script>
+</body>
+</html>
