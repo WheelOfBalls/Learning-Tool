@@ -321,6 +321,28 @@
       text-align: right;
     }
 
+    .user-answer-note {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: #7c8797;
+    }
+
+    .status-action-btn {
+      margin-top: 6px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    .status-action-btn:hover {
+      background: #e2e8f0;
+    }
+
     #finished-message {
       margin-top: 10px;
       font-size: 1rem;
@@ -460,7 +482,7 @@
       </div>
 
       <div id="feedback"></div>
-      <button id="override-btn" class="override-btn" type="button">I'm actually correct</button>
+      <button id="override-btn" class="override-btn" type="button">Mark as correct</button>
       <div id="finished-message"></div>
     </div>
 
@@ -707,6 +729,28 @@
       }
     }
 
+    function setCardMastery(cardId, mastered) {
+      const state = progress[cardId];
+      if (!state) return;
+      if (mastered) {
+        state.mastered = true;
+        state.pendingWrite = false;
+        state.writeCountdown = 0;
+        state.retryDelay = 0;
+        state.writeStreak = WRITING_MASTERY_STREAK;
+        state.mode = isWritingEnabled() ? "write" : "choice";
+      } else {
+        state.mastered = false;
+        state.pendingWrite = false;
+        state.writeCountdown = 0;
+        state.retryDelay = 0;
+        state.writeStreak = 0;
+        state.mode = isWritingEnabled()
+          ? "write"
+          : (isChoiceEnabled() ? "choice" : "write");
+      }
+    }
+
     function getStatusCards(type) {
       return vocab.filter(card => {
         const state = progress[card.id];
@@ -744,8 +788,29 @@
           const definition = document.createElement("span");
           definition.className = "status-definition";
           definition.textContent = card.english;
+
+          const actionBtn = document.createElement("button");
+          actionBtn.type = "button";
+          actionBtn.className = "status-action-btn";
+          if (type === "mastered") {
+            actionBtn.textContent = "Unmaster";
+            actionBtn.addEventListener("click", () => {
+              setCardMastery(card.id, false);
+              saveProgress();
+              updateProgressBar();
+            });
+          } else {
+            actionBtn.textContent = "Mark mastered";
+            actionBtn.addEventListener("click", () => {
+              setCardMastery(card.id, true);
+              saveProgress();
+              updateProgressBar();
+            });
+          }
+
           li.appendChild(term);
           li.appendChild(definition);
+          li.appendChild(actionBtn);
           statusPanelListEl.appendChild(li);
         });
       }
@@ -899,6 +964,24 @@
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/['’]/g, "'")
         .trim();
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>"']/g, ch => {
+        switch (ch) {
+          case "&": return "&amp;";
+          case "<": return "&lt;";
+          case ">": return "&gt;";
+          case "\"": return "&quot;";
+          case "'": return "&#39;";
+          default: return ch;
+        }
+      });
+    }
+
+    function buildUserSaidNote(value) {
+      const text = value && value.trim().length ? value : "(blank)";
+      return `<span class="user-answer-note">You said "${escapeHTML(text)}"</span>`;
     }
 
     function updateProgressBar() {
@@ -1091,23 +1174,27 @@
       const rawAnswer = answerInputEl.value;
       const userAnswer = normalized(rawAnswer);
       const correct = normalized(currentCard.french);
+      const userNote = buildUserSaidNote(rawAnswer);
+      const correctDisplay = escapeHTML(currentCard.french);
 
       if (writingRetypeRequired) {
+        toggleOverride(true);
         if (!rawAnswer.trim()) {
           feedbackEl.className = "wrong";
-          feedbackEl.textContent = "Type the correct answer to continue.";
+          feedbackEl.innerHTML = `Type the correct answer to continue.${userNote}`;
           return;
         }
         if (userAnswer === correct) {
           feedbackEl.className = "correct";
           feedbackEl.textContent = "Got it! Let's keep going.";
           setRetypeState(false);
+          toggleOverride(false);
           checkBtnEl.disabled = true;
           nextBtnEl.disabled = false;
           answeredThisRound = true;
         } else {
           feedbackEl.className = "wrong";
-          feedbackEl.textContent = `Please type it exactly as shown: ${currentCard.french}`;
+          feedbackEl.innerHTML = `Please type it exactly as shown: ${correctDisplay}.${userNote}`;
         }
         return;
       }
@@ -1139,8 +1226,9 @@
       } else {
         answeredThisRound = false;
         feedbackEl.className = "wrong";
-        feedbackEl.innerHTML = `Incorrect. Correct answer: <strong>${currentCard.french}</strong>. Type it to continue.`;
+        feedbackEl.innerHTML = `Incorrect. Correct answer: <strong>${correctDisplay}</strong>. Type it to continue.${userNote}`;
         setRetypeState(true);
+        toggleOverride(true);
         checkBtnEl.disabled = false;
         nextBtnEl.disabled = true;
         answerInputEl.value = "";
@@ -1261,12 +1349,10 @@
       feedbackEl.className = "correct";
       feedbackEl.textContent = "Marked correct.";
       nextBtnEl.disabled = false;
-      const state = progress[currentCard.id];
-      state.mastered = true;
-      state.pendingWrite = false;
-      state.writeCountdown = 0;
-      state.writeStreak = WRITING_MASTERY_STREAK;
-      state.retryDelay = 0;
+      checkBtnEl.disabled = true;
+      answeredThisRound = true;
+      setRetypeState(false);
+      setCardMastery(currentCard.id, true);
       saveProgress();
       updateProgressBar();
       toggleOverride(false);
