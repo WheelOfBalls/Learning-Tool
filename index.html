@@ -428,12 +428,25 @@
     }
 
     .break-summary-list li {
-      padding: 6px 0;
+      padding: 6px 8px;
       border-bottom: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 6px;
     }
 
     .break-summary-list li:last-child {
       border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .break-summary-list li.correct {
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .break-summary-list li.wrong {
+      background: #fef2f2;
+      border-color: #fecaca;
     }
 
     .break-summary-term {
@@ -535,6 +548,7 @@
     let recentCards = [];
     let writingRetypeRequired = false;
     let statusPanelMode = null;
+    let hadErrorThisRound = false;
 
     const progressLearningEl = document.getElementById("progress-learning");
     const progressMasteredEl = document.getElementById("progress-mastered");
@@ -624,7 +638,8 @@
       recentCards.push({
         id: card.id,
         french: card.french,
-        english: card.english
+        english: card.english,
+        correct: !hadErrorThisRound
       });
       if (recentCards.length > BREAK_SUMMARY_COUNT) {
         recentCards.shift();
@@ -695,6 +710,7 @@
       }
       items.forEach(card => {
         const li = document.createElement("li");
+        li.classList.add(card.correct ? "correct" : "wrong");
         const termSpan = document.createElement("span");
         termSpan.className = "break-summary-term";
         termSpan.textContent = card.french;
@@ -1053,6 +1069,7 @@
       toggleOverride(false);
       animateCard();
       setRetypeState(false);
+      hadErrorThisRound = false;
     }
 
     function renderChoiceCard(card) {
@@ -1157,6 +1174,7 @@
       } else {
         // Wrong -> show review card with the correct answer visible
         renderReviewCard(card, options, false);
+        hadErrorThisRound = true;
         const state = progress[card.id];
         if (state) {
           state.retryDelay = RETRY_DELAY_AFTER_WRONG;
@@ -1228,6 +1246,7 @@
         feedbackEl.className = "wrong";
         feedbackEl.innerHTML = `Incorrect. Correct answer: <strong>${correctDisplay}</strong>. Type it to continue.${userNote}`;
         setRetypeState(true);
+        hadErrorThisRound = true;
         toggleOverride(true);
         checkBtnEl.disabled = false;
         nextBtnEl.disabled = true;
@@ -1339,6 +1358,7 @@
       answeredThisRound = false;
       hideBreakOverlay();
       hideStatusPanel();
+      hadErrorThisRound = false;
       saveProgress();
       updateProgressBar();
       nextCard();
@@ -1352,6 +1372,7 @@
       checkBtnEl.disabled = true;
       answeredThisRound = true;
       setRetypeState(false);
+      hadErrorThisRound = false;
       setCardMastery(currentCard.id, true);
       saveProgress();
       updateProgressBar();
