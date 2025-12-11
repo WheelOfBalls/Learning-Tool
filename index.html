@@ -470,9 +470,11 @@
         <div class="progress-fill" id="progress-mastered"></div>
       </div>
       <div class="progress-text" id="progress-text">
-        <button type="button" class="status-toggle" id="mastered-toggle">Mastered 0/0</button>
+        <button type="button" class="status-toggle" id="learned-toggle">Learned 0/0</button>
         <span class="dot">·</span>
         <button type="button" class="status-toggle" id="learning-toggle">Learning 0</button>
+        <span class="dot">·</span>
+        <button type="button" class="status-toggle" id="unlearned-toggle">Unlearned 0</button>
       </div>
       <div id="status-panel" class="status-panel hidden">
         <div class="status-panel-header">
@@ -570,8 +572,9 @@
     const breakOverlayEl   = document.getElementById("break-overlay");
     const continueBtnEl    = document.getElementById("continue-btn");
     const breakSummaryListEl = document.getElementById("break-summary-list");
-    const masteredToggleEl = document.getElementById("mastered-toggle");
+    const learnedToggleEl = document.getElementById("learned-toggle");
     const learningToggleEl = document.getElementById("learning-toggle");
+    const unlearnedToggleEl = document.getElementById("unlearned-toggle");
     const statusPanelEl = document.getElementById("status-panel");
     const statusPanelTitleEl = document.getElementById("status-panel-title");
     const statusPanelListEl = document.getElementById("status-panel-list");
@@ -796,11 +799,14 @@
       return vocab.filter(card => {
         const state = progress[card.id];
         if (!state) return false;
-        if (type === "mastered") {
+        if (type === "learned") {
           return state.mastered;
         }
         if (type === "learning") {
           return !state.mastered && (state.mode === "write" || state.pendingWrite);
+        }
+        if (type === "unlearned") {
+          return !state.mastered && !(state.mode === "write" || state.pendingWrite);
         }
         return false;
       });
@@ -810,15 +816,21 @@
       if (!statusPanelEl || !statusPanelTitleEl || !statusPanelListEl) return;
       const cards = getStatusCards(type);
       statusPanelMode = type;
-      const label = type === "mastered" ? "Mastered" : "Learning";
+      let label = "Details";
+      if (type === "learned") label = "Learned";
+      else if (type === "learning") label = "Learning";
+      else if (type === "unlearned") label = "Unlearned";
       statusPanelTitleEl.textContent = `${label} (${cards.length})`;
       statusPanelListEl.innerHTML = "";
 
       if (!cards.length) {
         const li = document.createElement("li");
-        li.textContent = type === "mastered"
-          ? "Master some cards to see them listed here."
-          : "No cards are in learning mode yet.";
+        li.textContent =
+          type === "learned"
+            ? "Learn some cards to see them listed here."
+            : type === "learning"
+              ? "No cards are in learning mode yet."
+              : "Everything is either learning or learned.";
         statusPanelListEl.appendChild(li);
       } else {
         cards.forEach(card => {
@@ -833,15 +845,15 @@
           const actionBtn = document.createElement("button");
           actionBtn.type = "button";
           actionBtn.className = "status-action-btn";
-          if (type === "mastered") {
-            actionBtn.textContent = "Unmaster";
+          if (type === "learned") {
+            actionBtn.textContent = "Mark unlearned";
             actionBtn.addEventListener("click", () => {
               setCardMastery(card.id, false);
               saveProgress();
               updateProgressBar();
             });
           } else {
-            actionBtn.textContent = "Mark mastered";
+            actionBtn.textContent = "Mark learned";
             actionBtn.addEventListener("click", () => {
               setCardMastery(card.id, true);
               saveProgress();
@@ -1032,28 +1044,32 @@
 
     function updateProgressBar() {
       const total = vocab.length;
-      let masteredCount = 0;
+      let learnedCount = 0;
       let learningCount = 0;
 
       vocab.forEach(card => {
         const state = progress[card.id];
         if (!state) return;
         if (state.mastered) {
-          masteredCount++;
+          learnedCount++;
         } else if (state.mode === "write" || state.pendingWrite) {
           learningCount++;
         }
       });
 
-      const masteredPercent = total > 0 ? (masteredCount / total) * 100 : 0;
-      const learningPercent = total > 0 ? ((masteredCount + learningCount) / total) * 100 : 0;
-      progressMasteredEl.style.width = masteredPercent.toFixed(1) + "%";
-      progressLearningEl.style.width = Math.max(learningPercent, masteredPercent).toFixed(1) + "%";
-      if (masteredToggleEl) {
-        masteredToggleEl.textContent = `Mastered ${masteredCount}/${total}`;
+      const unlearnedCount = Math.max(0, total - learnedCount - learningCount);
+      const learnedPercent = total > 0 ? (learnedCount / total) * 100 : 0;
+      const learningPercent = total > 0 ? ((learnedCount + learningCount) / total) * 100 : 0;
+      progressMasteredEl.style.width = learnedPercent.toFixed(1) + "%";
+      progressLearningEl.style.width = Math.max(learningPercent, learnedPercent).toFixed(1) + "%";
+      if (learnedToggleEl) {
+        learnedToggleEl.textContent = `Learned ${learnedCount}/${total}`;
       }
       if (learningToggleEl) {
         learningToggleEl.textContent = `Learning ${learningCount}`;
+      }
+      if (unlearnedToggleEl) {
+        unlearnedToggleEl.textContent = `Unlearned ${unlearnedCount}`;
       }
       if (statusPanelMode) {
         renderStatusPanel(statusPanelMode);
@@ -1375,11 +1391,14 @@
     }
 
     // Event listeners
-    if (masteredToggleEl) {
-      masteredToggleEl.addEventListener("click", () => toggleStatusPanel("mastered"));
+    if (learnedToggleEl) {
+      learnedToggleEl.addEventListener("click", () => toggleStatusPanel("learned"));
     }
     if (learningToggleEl) {
       learningToggleEl.addEventListener("click", () => toggleStatusPanel("learning"));
+    }
+    if (unlearnedToggleEl) {
+      unlearnedToggleEl.addEventListener("click", () => toggleStatusPanel("unlearned"));
     }
     if (statusPanelCloseEl) {
       statusPanelCloseEl.addEventListener("click", () => hideStatusPanel());
