@@ -142,12 +142,12 @@
 { "id": 129, "french": "être louche",                "english": "to be shady" },
 { "id": 130, "french": "trahir",                     "english": "to betray" },
 
-{ "id": 131, "french": "avertis",                    "english": "aware / warned" },
-{ "id": 132, "french": "fourrisser",                 "english": "to rummage / dig around" },
+{ "id": 131, "french": "avertir",                    "english": "to warn" },
+{ "id": 132, "french": "fourrisser",                 "english": "to supply" },
 { "id": 133, "french": "jasais",                     "english": "I was gossiping" },
-{ "id": 134, "french": "énumérer",                   "english": "to enumerate / list" },
+{ "id": 134, "french": "énumérer",                   "english": "to count" },
 { "id": 135, "french": "les preuves",                "english": "proof / evidence" },
-{ "id": 136, "french": "récompenser",                "english": "to reward" },
+{ "id": 136, "french": "récompenser",                "english": "to compensate" },
 { "id": 137, "french": "revenons à nos moutons",     "english": "let's get back to business" },
-{ "id": 138, "french": "les fouilles",               "english": "searches / digs" }
+{ "id": 138, "french": "fouiller",               "english": "to rummage / excavate / dig" }
 ]
