@@ -144,9 +144,16 @@
       border-top: none;
     }
 
+    .status-term-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .status-term {
       font-weight: 600;
       display: block;
+      flex: 1;
     }
 
     .status-definition {
@@ -195,6 +202,24 @@
     #star-btn:disabled {
       cursor: default;
       color: #cbd5e1;
+    }
+
+    .status-star-btn {
+      border: none;
+      background: transparent;
+      font-size: 1rem;
+      cursor: pointer;
+      color: #cbd5e1;
+      padding: 0 4px;
+    }
+
+    .status-star-btn.starred {
+      color: #f4b400;
+    }
+
+    .status-star-btn:focus-visible {
+      outline: 2px solid #94a3b8;
+      border-radius: 4px;
     }
 
     #question {
@@ -858,16 +883,26 @@
       return null;
     }
 
-    function toggleCurrentCardStar() {
-      if (!currentCard) return;
-      const state = ensureStateStructure(currentCard.id);
+    function toggleStarForCard(cardId, { respectFilter = false } = {}) {
+      if (!cardId) return;
+      const state = ensureStateStructure(cardId);
       state.starred = !state.starred;
-      updateStarButton(currentCard);
+      if (currentCard && currentCard.id === cardId) {
+        updateStarButton(currentCard);
+      }
       saveProgress();
       updateProgressBar();
-      if (starOnlyMode && !state.starred) {
+      if (statusPanelMode) {
+        renderStatusPanel(statusPanelMode);
+      }
+      if (respectFilter && starOnlyMode && !state.starred) {
         nextCard(true);
       }
+    }
+
+    function toggleCurrentCardStar() {
+      if (!currentCard) return;
+      toggleStarForCard(currentCard.id, { respectFilter: true });
     }
 
     function applyStarFilter(enabled) {
@@ -942,11 +977,30 @@
       } else {
         cards.forEach(card => {
           const li = document.createElement("li");
-          const term = document.createElement("span");
-          term.className = "status-term";
+          const termRow = document.createElement("div");
+          termRow.className = "status-term-row";
+
+          const starBtn = document.createElement("button");
+          starBtn.type = "button";
+          starBtn.className = "status-star-btn";
           const state = progress[card.id];
           const starred = state && state.starred;
-          term.textContent = starred ? `★ ${card.french}` : card.french;
+          if (starred) {
+            starBtn.classList.add("starred");
+          }
+          starBtn.textContent = starred ? "★" : "☆";
+          starBtn.setAttribute("aria-label", starred ? "Unstar this term" : "Star this term");
+          starBtn.addEventListener("click", () => {
+            toggleStarForCard(card.id);
+          });
+
+          const term = document.createElement("span");
+          term.className = "status-term";
+          term.textContent = card.french;
+
+          termRow.appendChild(starBtn);
+          termRow.appendChild(term);
+
           const definition = document.createElement("span");
           definition.className = "status-definition";
           definition.textContent = card.english;
@@ -970,7 +1024,7 @@
             });
           }
 
-          li.appendChild(term);
+          li.appendChild(termRow);
           li.appendChild(definition);
           li.appendChild(actionBtn);
           statusPanelListEl.appendChild(li);
