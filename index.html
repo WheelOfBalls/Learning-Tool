@@ -549,6 +549,9 @@
     let writingRetypeRequired = false;
     let statusPanelMode = null;
     let hadErrorThisRound = false;
+    let choiceRetryQueue = [];
+    let retryMode = false;
+    let breakPending = false;
 
     const progressLearningEl = document.getElementById("progress-learning");
     const progressMasteredEl = document.getElementById("progress-mastered");
@@ -710,7 +713,11 @@
       }
       items.forEach(card => {
         const li = document.createElement("li");
-        li.classList.add(card.correct ? "correct" : "wrong");
+        if (card.correct === true) {
+          li.classList.add("correct");
+        } else if (card.correct === false) {
+          li.classList.add("wrong");
+        }
         const termSpan = document.createElement("span");
         termSpan.className = "break-summary-term";
         termSpan.textContent = card.french;
@@ -743,6 +750,24 @@
       } else {
         writeContainerEl.classList.remove("retype-mode");
       }
+    }
+
+    function queueChoiceRetry(cardId) {
+      if (!cardId) return;
+      if (choiceRetryQueue.includes(cardId)) return;
+      choiceRetryQueue.push(cardId);
+    }
+
+    function getNextChoiceRetry() {
+      while (choiceRetryQueue.length) {
+        const id = choiceRetryQueue.shift();
+        const card = vocab.find(entry => entry.id === id);
+        const state = progress[id];
+        if (card && state && !state.mastered) {
+          return card;
+        }
+      }
+      return null;
     }
 
     function setCardMastery(cardId, mastered) {
@@ -850,6 +875,7 @@
     }
 
     function showBreakOverlay() {
+      breakPending = false;
       breakActive = true;
       renderBreakSummary();
       breakOverlayEl.classList.remove("hidden");
@@ -955,6 +981,10 @@
       syncProgressWithPreference();
       cardsCompleted = 0;
       recentCards = [];
+      choiceRetryQueue = [];
+      retryMode = false;
+      breakPending = false;
+      hadErrorThisRound = false;
     }
 
     function saveProgress() {
@@ -1058,7 +1088,7 @@
       return "choice";
     }
 
-    function clearUIForNewCard() {
+    function clearUIForNewCard(preserveRetry = false) {
       feedbackEl.textContent = "";
       feedbackEl.className = "";
       finishedMsgEl.textContent = "";
@@ -1070,11 +1100,14 @@
       animateCard();
       setRetypeState(false);
       hadErrorThisRound = false;
+      if (!preserveRetry) {
+        retryMode = false;
+      }
     }
 
-    function renderChoiceCard(card) {
+    function renderChoiceCard(card, isRetry = false) {
       currentMode = "choice";
-      modeLabelEl.textContent = "Mode: Multiple Choice";
+      modeLabelEl.textContent = isRetry ? "Retry: Multiple Choice" : "Mode: Multiple Choice";
       questionEl.textContent = card.english;
 
       choicesEl.innerHTML = "";
@@ -1112,6 +1145,15 @@
       answerInputEl.focus();
     }
 
+    function showRetryCard(card) {
+      retryMode = true;
+      currentCard = card;
+      clearUIForNewCard(true);
+      renderChoiceCard(card, true);
+      feedbackEl.className = "wrong";
+      feedbackEl.textContent = "One more chance — get it right!";
+    }
+
     function renderReviewCard(card, optionsForReview, allowOverride = false) {
       reviewMode = true;
       answeredThisRound = true;
@@ -1147,7 +1189,7 @@
       });
 
       feedbackEl.className = "wrong";
-      feedbackEl.textContent = "Correct answer: " + card.french;
+      feedbackEl.textContent = "Correct answer: " + card.french + " — you'll retry soon.";
       toggleOverride(allowOverride);
     }
 
@@ -1174,6 +1216,9 @@
       } else {
         // Wrong -> show review card with the correct answer visible
         renderReviewCard(card, options, false);
+        if (!retryMode) {
+          queueChoiceRetry(card.id);
+        }
         hadErrorThisRound = true;
         const state = progress[card.id];
         if (state) {
@@ -1293,21 +1338,32 @@
       toggleOverride(false);
       hideBreakOverlay();
       setRetypeState(false);
+      breakPending = false;
     }
 
     function nextCard(force = false) {
       if (breakActive && !force) return;
 
-      if (!force && currentCard && answeredThisRound) {
+      if (!force && currentCard && answeredThisRound && !retryMode) {
         recordCardCompletion(currentCard);
         cardsCompleted++;
         if (BREAK_INTERVAL > 0 && cardsCompleted % BREAK_INTERVAL === 0) {
           const hasUnmastered = vocab.some(card => !progress[card.id].mastered);
           if (hasUnmastered) {
-            showBreakOverlay();
-            return;
+            breakPending = true;
           }
         }
+      }
+
+      const retryCard = getNextChoiceRetry();
+      if (retryCard) {
+        showRetryCard(retryCard);
+        return;
+      }
+
+      if (breakPending) {
+        showBreakOverlay();
+        return;
       }
 
       const next = getNextCard();
@@ -1358,6 +1414,9 @@
       answeredThisRound = false;
       hideBreakOverlay();
       hideStatusPanel();
+      choiceRetryQueue = [];
+      retryMode = false;
+      breakPending = false;
       hadErrorThisRound = false;
       saveProgress();
       updateProgressBar();
