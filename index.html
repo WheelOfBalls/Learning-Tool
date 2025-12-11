@@ -878,6 +878,7 @@
       const userAnswer = normalized(answerInputEl.value);
       const correct = normalized(currentCard.french);
 
+      checkBtnEl.disabled = true;
       answeredThisRound = true;
 
       if (userAnswer && userAnswer === correct) {
@@ -1048,6 +1049,12 @@
           event.preventDefault();
           nextBtnEl.click();
         }
+        return;
+      }
+
+      if (event.key === "1" && reviewMode && overrideAvailable && !breakActive) {
+        event.preventDefault();
+        overrideBtnEl.click();
         return;
       }
 
