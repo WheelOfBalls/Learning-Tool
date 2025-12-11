@@ -1028,6 +1028,47 @@
       }
     });
 
+    document.addEventListener("keydown", (event) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      if (event.key === "Enter") {
+        if (breakActive) {
+          event.preventDefault();
+          continueBtnEl.click();
+          return;
+        }
+        const activeEl = document.activeElement;
+        const typingInAnswer = activeEl === answerInputEl && !answeredThisRound && !checkBtnEl.disabled;
+        if (typingInAnswer) {
+          return; // Let the answer input handle the Enter press for checking.
+        }
+        if (!nextBtnEl.disabled) {
+          event.preventDefault();
+          nextBtnEl.click();
+        }
+        return;
+      }
+
+      if (
+        breakActive ||
+        reviewMode ||
+        currentMode !== "choice" ||
+        answeredThisRound ||
+        !/^[1-4]$/.test(event.key)
+      ) {
+        return;
+      }
+
+      const index = Number(event.key) - 1;
+      const buttons = choicesEl.querySelectorAll(".choice-btn");
+      if (buttons[index] && !buttons[index].disabled) {
+        event.preventDefault();
+        buttons[index].click();
+      }
+    });
+
     async function initApp() {
       const loaded = await loadVocabData();
       if (!loaded || !vocab.length) return;
