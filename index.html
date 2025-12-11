@@ -397,6 +397,9 @@
     const BREAK_INTERVAL = 6;
     const BREAK_SUMMARY_COUNT = Math.max(1, BREAK_INTERVAL);
     const WRITING_DELAY_CARDS = Math.max(2, BREAK_INTERVAL * 2);
+    const WRITING_MASTERY_STREAK = 2;
+    const RETRY_DELAY_AFTER_WRONG = 2;
+    const RETRY_DELAY_AFTER_PARTIAL = 1;
 
     // progress[id] = { mode: "choice" | "write", mastered: bool }
     let progress = {};
@@ -443,7 +446,9 @@
           mode: isChoiceEnabled() ? "choice" : "write",
           mastered: false,
           writeCountdown: 0,
-          pendingWrite: false
+          pendingWrite: false,
+          writeStreak: 0,
+          retryDelay: 0
         };
       } else {
         const state = progress[cardId];
@@ -451,6 +456,8 @@
         if (state.mode !== "choice" && state.mode !== "write") state.mode = "choice";
         if (typeof state.writeCountdown !== "number") state.writeCountdown = 0;
         if (typeof state.pendingWrite !== "boolean") state.pendingWrite = false;
+        if (typeof state.writeStreak !== "number") state.writeStreak = 0;
+        if (typeof state.retryDelay !== "number") state.retryDelay = 0;
       }
       return progress[cardId];
     }
@@ -494,35 +501,46 @@
       if (recentCards.length > BREAK_SUMMARY_COUNT) {
         recentCards.shift();
       }
-      advanceWriteCountdowns();
+      advanceCountdowns();
     }
 
-    function advanceWriteCountdowns() {
-      if (modePreference !== "both") return;
+    function advanceCountdowns() {
       vocab.forEach(entry => {
         const state = progress[entry.id];
         if (!state || state.mastered) return;
-        if (state.pendingWrite && state.writeCountdown > 0) {
+        if (
+          modePreference === "both" &&
+          state.pendingWrite &&
+          state.writeCountdown > 0
+        ) {
           state.writeCountdown = Math.max(0, state.writeCountdown - 1);
           if (state.writeCountdown === 0 && isWritingEnabled()) {
             state.pendingWrite = false;
             state.mode = "write";
           }
         }
+        if (state.retryDelay > 0) {
+          state.retryDelay = Math.max(0, state.retryDelay - 1);
+        }
       });
     }
 
     function handleChoiceProgress(state) {
       if (!state) return;
+      state.writeStreak = 0;
+      state.retryDelay = 0;
       if (!isWritingEnabled() || modePreference === "choice") {
         state.mastered = true;
         state.pendingWrite = false;
         state.writeCountdown = 0;
+        state.mode = "choice";
       } else if (modePreference === "both") {
         state.pendingWrite = true;
         state.writeCountdown = WRITING_DELAY_CARDS;
         state.mode = "choice";
+        state.mastered = false;
       } else {
+        state.mastered = false;
         state.mode = "write";
       }
     }
@@ -532,6 +550,8 @@
       state.pendingWrite = false;
       state.writeCountdown = 0;
       state.mastered = false;
+      state.writeStreak = 0;
+      state.retryDelay = Math.max(state.retryDelay, RETRY_DELAY_AFTER_WRONG);
       state.mode = isChoiceEnabled() ? "choice" : "write";
     }
 
@@ -732,6 +752,7 @@
       if (state.pendingWrite && state.writeCountdown > 0) return false;
       if (state.mode === "write" && !isWritingEnabled()) return false;
       if (state.mode === "choice" && !isChoiceEnabled()) return false;
+      if (state.retryDelay > 0) return false;
       return true;
     }
 
@@ -867,6 +888,12 @@
       } else {
         // Wrong -> show review card with the correct answer visible
         renderReviewCard(card, options, false);
+        const state = progress[card.id];
+        if (state) {
+          state.retryDelay = RETRY_DELAY_AFTER_WRONG;
+          state.writeStreak = 0;
+          state.mastered = false;
+        }
       }
 
       saveProgress();
@@ -880,17 +907,26 @@
 
       checkBtnEl.disabled = true;
       answeredThisRound = true;
+      const state = progress[currentCard.id];
 
       if (userAnswer && userAnswer === correct) {
         feedbackEl.className = "correct";
         feedbackEl.textContent = "Correct!";
         nextBtnEl.disabled = false;
         toggleOverride(false);
-
-        const state = progress[currentCard.id];
-        state.mastered = true;
+        state.writeStreak = (state.writeStreak || 0) + 1;
         state.pendingWrite = false;
         state.writeCountdown = 0;
+        state.retryDelay = 0;
+        if (state.writeStreak >= WRITING_MASTERY_STREAK) {
+          state.mastered = true;
+          state.mode = "write";
+          state.writeStreak = WRITING_MASTERY_STREAK;
+        } else {
+          state.mastered = false;
+          state.mode = "write";
+          state.retryDelay = RETRY_DELAY_AFTER_PARTIAL;
+        }
         saveProgress();
         updateProgressBar();
       } else {
@@ -898,7 +934,6 @@
         feedbackEl.textContent = "Incorrect.";
         // Show review card with MC + correct answer
         renderReviewCard(currentCard, null, true);
-        const state = progress[currentCard.id];
         revertCardToChoice(state);
         saveProgress();
         updateProgressBar();
@@ -971,12 +1006,6 @@
       }
     });
 
-    answerInputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !checkBtnEl.disabled) {
-        handleCheckWriting();
-      }
-    });
-
     nextBtnEl.addEventListener("click", () => {
       nextCard();
     });
@@ -989,7 +1018,9 @@
           mode: isChoiceEnabled() ? "choice" : "write",
           mastered: false,
           writeCountdown: 0,
-          pendingWrite: false
+          pendingWrite: false,
+          writeStreak: 0,
+          retryDelay: 0
         };
       });
       cardsCompleted = 0;
@@ -1011,6 +1042,8 @@
       state.mastered = true;
       state.pendingWrite = false;
       state.writeCountdown = 0;
+      state.writeStreak = WRITING_MASTERY_STREAK;
+      state.retryDelay = 0;
       saveProgress();
       updateProgressBar();
       toggleOverride(false);
@@ -1040,10 +1073,12 @@
           continueBtnEl.click();
           return;
         }
-        const activeEl = document.activeElement;
-        const typingInAnswer = activeEl === answerInputEl && !answeredThisRound && !checkBtnEl.disabled;
-        if (typingInAnswer) {
-          return; // Let the answer input handle the Enter press for checking.
+        if (currentMode === "write") {
+          if (!answeredThisRound && !checkBtnEl.disabled) {
+            event.preventDefault();
+            handleCheckWriting();
+            return;
+          }
         }
         if (!nextBtnEl.disabled) {
           event.preventDefault();
