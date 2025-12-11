@@ -1086,8 +1086,38 @@
       return true;
     }
 
+    function releasePendingWritesIfStuck() {
+      let released = false;
+      const hasPendingWrites = vocab.some(card => {
+        const state = progress[card.id];
+        return state && !state.mastered && state.pendingWrite;
+      });
+      if (!hasPendingWrites) {
+        return false;
+      }
+      vocab.forEach(card => {
+        const state = progress[card.id];
+        if (!state || state.mastered || !state.pendingWrite) {
+          return;
+        }
+        state.pendingWrite = false;
+        state.writeCountdown = 0;
+        if (isWritingEnabled()) {
+          state.mode = "write";
+        }
+        released = true;
+      });
+      return released;
+    }
+
     function getNextCard() {
-      const remaining = vocab.filter(card => isCardEligible(card));
+      let remaining = vocab.filter(card => isCardEligible(card));
+      if (remaining.length === 0) {
+        const unlocked = releasePendingWritesIfStuck();
+        if (unlocked) {
+          remaining = vocab.filter(card => isCardEligible(card));
+        }
+      }
       if (remaining.length === 0) return null;
       const idx = Math.floor(Math.random() * remaining.length);
       return remaining[idx];
