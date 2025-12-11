@@ -1,3 +1,4 @@
+[
 { "id": 1,  "french": "une arrière-cour",            "english": "back courtyard / backyard" },
 { "id": 2,  "french": "un faubourg",                 "english": "suburb" },
 { "id": 3,  "french": "étroite",                     "english": "narrow" },
@@ -140,3 +141,4 @@
 { "id": 128, "french": "déranger",                   "english": "to disturb" },
 { "id": 129, "french": "être louche",                "english": "to be shady" },
 { "id": 130, "french": "trahir",                     "english": "to betray" }
+]
