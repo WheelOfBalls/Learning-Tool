@@ -68,8 +68,90 @@
     .progress-text {
       margin-top: 6px;
       font-size: 0.9rem;
-      text-align: right;
       color: #555;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .progress-text .dot {
+      color: #94a3b8;
+    }
+
+    .status-toggle {
+      background: none;
+      border: none;
+      color: #1976d2;
+      cursor: pointer;
+      padding: 0 2px;
+      font: inherit;
+    }
+
+    .status-toggle:focus-visible,
+    .status-toggle:hover {
+      text-decoration: underline;
+    }
+
+    .status-panel {
+      margin-top: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+      font-size: 0.9rem;
+      color: #333;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .status-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    #status-panel-close {
+      border: none;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    #status-panel-close:hover {
+      background: #e2e8f0;
+    }
+
+    .status-panel-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .status-panel-list li {
+      padding: 6px 0;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .status-panel-list li:first-child {
+      border-top: none;
+    }
+
+    .status-term {
+      font-weight: 600;
+      display: block;
+    }
+
+    .status-definition {
+      color: #64748b;
+      font-size: 0.85rem;
     }
 
     #card {
@@ -134,6 +216,12 @@
     #write-input-container {
       display: none;
       margin-bottom: 12px;
+      transition: border-color 0.2s ease;
+    }
+
+    #write-input-container.retype-mode #answer-input {
+      border-color: #e53935;
+      box-shadow: 0 0 0 1px rgba(229, 57, 53, 0.15);
     }
 
     #answer-input {
@@ -346,7 +434,18 @@
         <div class="progress-fill" id="progress-learning"></div>
         <div class="progress-fill" id="progress-mastered"></div>
       </div>
-      <div class="progress-text" id="progress-text">Mastered 0/0 · Learning 0</div>
+      <div class="progress-text" id="progress-text">
+        <button type="button" class="status-toggle" id="mastered-toggle">Mastered 0/0</button>
+        <span class="dot">·</span>
+        <button type="button" class="status-toggle" id="learning-toggle">Learning 0</button>
+      </div>
+      <div id="status-panel" class="status-panel hidden">
+        <div class="status-panel-header">
+          <span id="status-panel-title">Details</span>
+          <button type="button" id="status-panel-close">Close</button>
+        </div>
+        <ul id="status-panel-list" class="status-panel-list"></ul>
+      </div>
     </div>
 
     <div id="card">
@@ -412,10 +511,11 @@
     let modePreference = "both";
     let overrideAvailable = false;
     let recentCards = [];
+    let writingRetypeRequired = false;
+    let statusPanelMode = null;
 
     const progressLearningEl = document.getElementById("progress-learning");
     const progressMasteredEl = document.getElementById("progress-mastered");
-    const progressTextEl   = document.getElementById("progress-text");
     const questionEl       = document.getElementById("question");
     const modeLabelEl      = document.getElementById("mode-label");
     const choicesEl        = document.getElementById("choices");
@@ -431,6 +531,12 @@
     const breakOverlayEl   = document.getElementById("break-overlay");
     const continueBtnEl    = document.getElementById("continue-btn");
     const breakSummaryListEl = document.getElementById("break-summary-list");
+    const masteredToggleEl = document.getElementById("mastered-toggle");
+    const learningToggleEl = document.getElementById("learning-toggle");
+    const statusPanelEl = document.getElementById("status-panel");
+    const statusPanelTitleEl = document.getElementById("status-panel-title");
+    const statusPanelListEl = document.getElementById("status-panel-list");
+    const statusPanelCloseEl = document.getElementById("status-panel-close");
 
     function isChoiceEnabled() {
       return modePreference === "choice" || modePreference === "both";
@@ -591,6 +697,77 @@
       setTimeout(() => el.classList.remove("clicked"), 180);
     }
 
+    function setRetypeState(active) {
+      writingRetypeRequired = active;
+      if (!writeContainerEl) return;
+      if (active) {
+        writeContainerEl.classList.add("retype-mode");
+      } else {
+        writeContainerEl.classList.remove("retype-mode");
+      }
+    }
+
+    function getStatusCards(type) {
+      return vocab.filter(card => {
+        const state = progress[card.id];
+        if (!state) return false;
+        if (type === "mastered") {
+          return state.mastered;
+        }
+        if (type === "learning") {
+          return !state.mastered && (state.mode === "write" || state.pendingWrite);
+        }
+        return false;
+      });
+    }
+
+    function renderStatusPanel(type) {
+      if (!statusPanelEl || !statusPanelTitleEl || !statusPanelListEl) return;
+      const cards = getStatusCards(type);
+      statusPanelMode = type;
+      const label = type === "mastered" ? "Mastered" : "Learning";
+      statusPanelTitleEl.textContent = `${label} (${cards.length})`;
+      statusPanelListEl.innerHTML = "";
+
+      if (!cards.length) {
+        const li = document.createElement("li");
+        li.textContent = type === "mastered"
+          ? "Master some cards to see them listed here."
+          : "No cards are in learning mode yet.";
+        statusPanelListEl.appendChild(li);
+      } else {
+        cards.forEach(card => {
+          const li = document.createElement("li");
+          const term = document.createElement("span");
+          term.className = "status-term";
+          term.textContent = card.french;
+          const definition = document.createElement("span");
+          definition.className = "status-definition";
+          definition.textContent = card.english;
+          li.appendChild(term);
+          li.appendChild(definition);
+          statusPanelListEl.appendChild(li);
+        });
+      }
+
+      statusPanelEl.classList.remove("hidden");
+    }
+
+    function hideStatusPanel() {
+      statusPanelMode = null;
+      if (statusPanelEl) {
+        statusPanelEl.classList.add("hidden");
+      }
+    }
+
+    function toggleStatusPanel(type) {
+      if (statusPanelMode === type) {
+        hideStatusPanel();
+        return;
+      }
+      renderStatusPanel(type);
+    }
+
     function showBreakOverlay() {
       breakActive = true;
       renderBreakSummary();
@@ -743,7 +920,15 @@
       const learningPercent = total > 0 ? ((masteredCount + learningCount) / total) * 100 : 0;
       progressMasteredEl.style.width = masteredPercent.toFixed(1) + "%";
       progressLearningEl.style.width = Math.max(learningPercent, masteredPercent).toFixed(1) + "%";
-      progressTextEl.textContent = `Mastered ${masteredCount}/${total} · Learning ${learningCount}`;
+      if (masteredToggleEl) {
+        masteredToggleEl.textContent = `Mastered ${masteredCount}/${total}`;
+      }
+      if (learningToggleEl) {
+        learningToggleEl.textContent = `Learning ${learningCount}`;
+      }
+      if (statusPanelMode) {
+        renderStatusPanel(statusPanelMode);
+      }
     }
 
     function isCardEligible(card) {
@@ -784,6 +969,7 @@
       checkBtnEl.disabled = false;
       toggleOverride(false);
       animateCard();
+      setRetypeState(false);
     }
 
     function renderChoiceCard(card) {
@@ -902,14 +1088,35 @@
 
     function handleCheckWriting() {
       if (!currentCard) return;
-      const userAnswer = normalized(answerInputEl.value);
+      const rawAnswer = answerInputEl.value;
+      const userAnswer = normalized(rawAnswer);
       const correct = normalized(currentCard.french);
 
+      if (writingRetypeRequired) {
+        if (!rawAnswer.trim()) {
+          feedbackEl.className = "wrong";
+          feedbackEl.textContent = "Type the correct answer to continue.";
+          return;
+        }
+        if (userAnswer === correct) {
+          feedbackEl.className = "correct";
+          feedbackEl.textContent = "Got it! Let's keep going.";
+          setRetypeState(false);
+          checkBtnEl.disabled = true;
+          nextBtnEl.disabled = false;
+          answeredThisRound = true;
+        } else {
+          feedbackEl.className = "wrong";
+          feedbackEl.textContent = `Please type it exactly as shown: ${currentCard.french}`;
+        }
+        return;
+      }
+
       checkBtnEl.disabled = true;
-      answeredThisRound = true;
       const state = progress[currentCard.id];
 
       if (userAnswer && userAnswer === correct) {
+        answeredThisRound = true;
         feedbackEl.className = "correct";
         feedbackEl.textContent = "Correct!";
         nextBtnEl.disabled = false;
@@ -930,10 +1137,14 @@
         saveProgress();
         updateProgressBar();
       } else {
+        answeredThisRound = false;
         feedbackEl.className = "wrong";
-        feedbackEl.textContent = "Incorrect.";
-        // Show review card with MC + correct answer
-        renderReviewCard(currentCard, null, true);
+        feedbackEl.innerHTML = `Incorrect. Correct answer: <strong>${currentCard.french}</strong>. Type it to continue.`;
+        setRetypeState(true);
+        checkBtnEl.disabled = false;
+        nextBtnEl.disabled = true;
+        answerInputEl.value = "";
+        answerInputEl.focus();
         revertCardToChoice(state);
         saveProgress();
         updateProgressBar();
@@ -974,6 +1185,7 @@
       nextBtnEl.disabled = true;
       toggleOverride(false);
       hideBreakOverlay();
+      setRetypeState(false);
     }
 
     function nextCard(force = false) {
@@ -1000,6 +1212,16 @@
     }
 
     // Event listeners
+    if (masteredToggleEl) {
+      masteredToggleEl.addEventListener("click", () => toggleStatusPanel("mastered"));
+    }
+    if (learningToggleEl) {
+      learningToggleEl.addEventListener("click", () => toggleStatusPanel("learning"));
+    }
+    if (statusPanelCloseEl) {
+      statusPanelCloseEl.addEventListener("click", () => hideStatusPanel());
+    }
+
     checkBtnEl.addEventListener("click", () => {
       if (!answeredThisRound || reviewMode === false) {
         handleCheckWriting();
@@ -1028,6 +1250,7 @@
       currentCard = null;
       answeredThisRound = false;
       hideBreakOverlay();
+      hideStatusPanel();
       saveProgress();
       updateProgressBar();
       nextCard();
