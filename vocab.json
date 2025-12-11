@@ -149,5 +149,9 @@
 { "id": 135, "french": "les preuves",                "english": "proof / evidence" },
 { "id": 136, "french": "récompenser",                "english": "to compensate" },
 { "id": 137, "french": "revenons à nos moutons",     "english": "let's get back to business" },
-{ "id": 138, "french": "fouiller",               "english": "to rummage / excavate / dig" }
+{ "id": 138, "french": "fouiller",                   "english": "to rummage / excavate / dig" },
+{ "id": 139, "french": "jurer",                      "english": "to swear" },
+{ "id": 140, "french": "bousculer",                  "english": "to shove / push" },
+{ "id": 141, "french": "frêle",                      "english": "frail" },
+{ "id": 142, "french": "sur-homme",                  "english": "superhero" }
 ]
