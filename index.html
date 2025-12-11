@@ -159,6 +159,16 @@
       border: 1px solid #e0e0e0;
       padding: 20px 18px 18px;
       background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
 
     #mode-label {
@@ -167,6 +177,24 @@
       letter-spacing: 0.05em;
       color: #777;
       margin-bottom: 8px;
+    }
+
+    #star-btn {
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      cursor: pointer;
+      color: #94a3b8;
+      padding: 2px 4px;
+    }
+
+    #star-btn.starred {
+      color: #f4b400;
+    }
+
+    #star-btn:disabled {
+      cursor: default;
+      color: #cbd5e1;
     }
 
     #question {
@@ -319,6 +347,26 @@
       font-size: 0.8rem;
       color: #777;
       text-align: right;
+    }
+
+    .star-filter-btn {
+      margin-top: 6px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .star-filter-btn.active {
+      background: #fff7e6;
+      border-color: #f4b400;
+      color: #b45309;
     }
 
     .user-answer-note {
@@ -476,6 +524,9 @@
         <span class="dot">·</span>
         <button type="button" class="status-toggle" id="unlearned-toggle">Unlearned 0</button>
       </div>
+      <button type="button" id="star-filter-toggle" class="star-filter-btn" aria-pressed="false">
+        Starred mode: Off
+      </button>
       <div id="status-panel" class="status-panel hidden">
         <div class="status-panel-header">
           <span id="status-panel-title">Details</span>
@@ -486,7 +537,10 @@
     </div>
 
     <div id="card">
-      <div id="mode-label"></div>
+      <div class="card-top">
+        <div id="mode-label"></div>
+        <button id="star-btn" type="button" aria-pressed="false" aria-label="Star this term" disabled>☆</button>
+      </div>
       <div id="question"></div>
 
       <div id="choices" class="choices"></div>
@@ -546,6 +600,7 @@
     let cardsCompleted = 0;
     let breakActive = false;
     let modePreference = "both";
+    let starOnlyMode = false;
     let overrideAvailable = false;
     let recentCards = [];
     let writingRetypeRequired = false;
@@ -579,6 +634,8 @@
     const statusPanelTitleEl = document.getElementById("status-panel-title");
     const statusPanelListEl = document.getElementById("status-panel-list");
     const statusPanelCloseEl = document.getElementById("status-panel-close");
+    const starBtnEl = document.getElementById("star-btn");
+    const starFilterToggleEl = document.getElementById("star-filter-toggle");
 
     function isChoiceEnabled() {
       return modePreference === "choice" || modePreference === "both";
@@ -596,7 +653,8 @@
           writeCountdown: 0,
           pendingWrite: false,
           writeStreak: 0,
-          retryDelay: 0
+          retryDelay: 0,
+          starred: false
         };
       } else {
         const state = progress[cardId];
@@ -606,6 +664,7 @@
         if (typeof state.pendingWrite !== "boolean") state.pendingWrite = false;
         if (typeof state.writeStreak !== "number") state.writeStreak = 0;
         if (typeof state.retryDelay !== "number") state.retryDelay = 0;
+        if (typeof state.starred !== "boolean") state.starred = false;
       }
       return progress[cardId];
     }
@@ -637,6 +696,32 @@
       } else {
         overrideBtnEl.style.display = "none";
       }
+    }
+
+    function updateStarButton(card) {
+      if (!starBtnEl) return;
+      if (!card) {
+        starBtnEl.textContent = "☆";
+        starBtnEl.classList.remove("starred");
+        starBtnEl.disabled = true;
+        starBtnEl.setAttribute("aria-pressed", "false");
+        starBtnEl.setAttribute("aria-label", "Star this term");
+        return;
+      }
+      const state = ensureStateStructure(card.id);
+      const starred = !!state.starred;
+      starBtnEl.disabled = false;
+      starBtnEl.textContent = starred ? "★" : "☆";
+      starBtnEl.classList.toggle("starred", starred);
+      starBtnEl.setAttribute("aria-pressed", starred ? "true" : "false");
+      starBtnEl.setAttribute("aria-label", starred ? "Unstar this term" : "Star this term");
+    }
+
+    function updateStarFilterButton() {
+      if (!starFilterToggleEl) return;
+      starFilterToggleEl.textContent = starOnlyMode ? "Starred mode: On" : "Starred mode: Off";
+      starFilterToggleEl.classList.toggle("active", starOnlyMode);
+      starFilterToggleEl.setAttribute("aria-pressed", starOnlyMode ? "true" : "false");
     }
 
     function recordCardCompletion(card) {
@@ -773,6 +858,28 @@
       return null;
     }
 
+    function toggleCurrentCardStar() {
+      if (!currentCard) return;
+      const state = ensureStateStructure(currentCard.id);
+      state.starred = !state.starred;
+      updateStarButton(currentCard);
+      saveProgress();
+      updateProgressBar();
+      if (starOnlyMode && !state.starred) {
+        nextCard(true);
+      }
+    }
+
+    function applyStarFilter(enabled) {
+      starOnlyMode = enabled;
+      updateStarFilterButton();
+      saveProgress();
+      updateProgressBar();
+      if (vocab.length && (!currentCard || !isCardEligible(currentCard))) {
+        nextCard(true);
+      }
+    }
+
     function setCardMastery(cardId, mastered) {
       const state = progress[cardId];
       if (!state) return;
@@ -837,7 +944,9 @@
           const li = document.createElement("li");
           const term = document.createElement("span");
           term.className = "status-term";
-          term.textContent = card.french;
+          const state = progress[card.id];
+          const starred = state && state.starred;
+          term.textContent = starred ? `★ ${card.french}` : card.french;
           const definition = document.createElement("span");
           definition.className = "status-definition";
           definition.textContent = card.english;
@@ -981,8 +1090,13 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const data = JSON.parse(raw);
-          if (data && typeof data === "object" && data.progress) {
-            progress = data.progress;
+          if (data && typeof data === "object") {
+            if (data.progress) {
+              progress = data.progress;
+            }
+            if (typeof data.starOnlyMode === "boolean") {
+              starOnlyMode = data.starOnlyMode;
+            }
           }
         }
       } catch (e) {
@@ -991,6 +1105,7 @@
 
       // Ensure every card has an entry
       syncProgressWithPreference();
+      updateStarFilterButton();
       cardsCompleted = 0;
       recentCards = [];
       choiceRetryQueue = [];
@@ -1001,7 +1116,7 @@
 
     function saveProgress() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ progress }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ progress, starOnlyMode }));
       } catch (e) {
         console.warn("Could not save progress:", e);
       }
@@ -1079,6 +1194,7 @@
     function isCardEligible(card) {
       const state = progress[card.id];
       if (!state || state.mastered) return false;
+      if (starOnlyMode && !state.starred) return false;
       if (state.pendingWrite && state.writeCountdown > 0) return false;
       if (state.mode === "write" && !isWritingEnabled()) return false;
       if (state.mode === "choice" && !isChoiceEnabled()) return false;
@@ -1195,6 +1311,7 @@
       retryMode = true;
       currentCard = card;
       clearUIForNewCard(true);
+      updateStarButton(card);
       renderChoiceCard(card, true);
       feedbackEl.className = "wrong";
       feedbackEl.textContent = "One more chance — get it right!";
@@ -1352,6 +1469,7 @@
     function showCard(card) {
       currentCard = card;
       clearUIForNewCard();
+      updateStarButton(card);
 
       const state = progress[card.id];
       if (state.mastered) {
@@ -1374,14 +1492,18 @@
     }
 
     function showFinished() {
+      currentCard = null;
       questionEl.textContent = "";
       choicesEl.innerHTML = "";
       choicesEl.style.display = "none";
       writeContainerEl.style.display = "none";
       feedbackEl.textContent = "";
-      finishedMsgEl.textContent = "🎉 All words mastered! (You can reset progress to start again.)";
+      finishedMsgEl.textContent = starOnlyMode
+        ? "No starred terms to review. Star more words or disable starred mode."
+        : "🎉 All words mastered! (You can reset progress to start again.)";
       nextBtnEl.disabled = true;
       toggleOverride(false);
+      updateStarButton(null);
       hideBreakOverlay();
       setRetypeState(false);
       breakPending = false;
@@ -1433,6 +1555,12 @@
     if (statusPanelCloseEl) {
       statusPanelCloseEl.addEventListener("click", () => hideStatusPanel());
     }
+    if (starBtnEl) {
+      starBtnEl.addEventListener("click", () => toggleCurrentCardStar());
+    }
+    if (starFilterToggleEl) {
+      starFilterToggleEl.addEventListener("click", () => applyStarFilter(!starOnlyMode));
+    }
 
     checkBtnEl.addEventListener("click", () => {
       if (!answeredThisRound || reviewMode === false) {
@@ -1454,12 +1582,14 @@
           writeCountdown: 0,
           pendingWrite: false,
           writeStreak: 0,
-          retryDelay: 0
+          retryDelay: 0,
+          starred: false
         };
       });
       cardsCompleted = 0;
       recentCards = [];
       currentCard = null;
+      updateStarButton(null);
       answeredThisRound = false;
       hideBreakOverlay();
       hideStatusPanel();
